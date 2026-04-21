@@ -23,6 +23,8 @@
 
 ```
 chmod +x 01-install-jenkins-with-dummy-app.sh
+```
+```
 ./01-install-jenkins-with-dummy-app.sh
 
 ```
@@ -60,18 +62,18 @@ Part A: On Server A (Your Old Jenkins)
 
 Step 1: Copy script to Server A
 ```
-bash
+
 scp 02-backup-and-restore-old-jenkins.sh user@server-a-ip:/tmp/
 ```
 
 Step 2: SSH into Server A
 ```
-bash
+
 ssh user@server-a-ip
 ```
 Step 3: Run the backup script
 ```
-bash
+
 cd /tmp
 chmod +x 02-backup-and-restore-old-jenkins.sh
 sudo ./02-backup-and-restore-old-jenkins.sh
@@ -81,7 +83,7 @@ Step 4: Wait for backup to complete
 The script will create: jenkins-backup-YYYYMMDD_HHMMSS.tar.gz
 
 Step 5: Copy backup to safe location
-bash
+
 # Copy to your local machine
 scp /tmp/jenkins-backup-*.tar.gz user@your-machine:/backup/
 ✅ Backup complete! Your production Jenkins is still running.
@@ -91,13 +93,13 @@ Part B: Restore into Docker (On Sandbox or Same Server)
 
 Step 1: Copy backup file to target server
 ```
-bash
+
 scp jenkins-backup-*.tar.gz user@target-server:/tmp/
 ```
 
 Step 2: SSH into target server
 ```
-bash
+
 ssh user@target-server
 cd /tmp
 ```
@@ -117,7 +119,7 @@ Step 5: Wait for restore to complete (about 1 minute)
 
 Step 6: Get the admin password
 ```
-bash
+
 docker exec jenkins-restored cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
@@ -171,6 +173,6 @@ Need Help?
 
 Check container logs:
 ```
-bash
+
 docker logs jenkins-restored
 ```
