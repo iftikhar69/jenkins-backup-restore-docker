@@ -1,53 +1,176 @@
-## For Old (Non-Docker) Jenkins on Server A
+# Jenkins Backup & Restore to Docker
 
-### Step 1: Locate Jenkins on Server A
+## Two Scripts
 
-SSH into Server A and run:
+| Script | What it does |
+|--------|--------------|
+| `01-install-jenkins-with-dummy-app.sh` | Install fresh Jenkins + create dummy job (for testing) |
+| `02-backup-and-restore-old-jenkins.sh` | Backup your old Jenkins + restore into Docker |
 
-```bash
-# Find Jenkins home directory
-sudo find / -name "config.xml" 2>/dev/null | grep jenkins
+---
 
-# Find Jenkins version
-sudo find / -name "jenkins.war" 2>/dev/null | xargs java -jar --version
+## Prerequisites
+
+- Linux server (Ubuntu, RHEL, OEL8)
+- Internet connection
+- 2GB free disk space
+
+---
+
+## Script 1: Install Jenkins with Dummy App (For Testing)
+
+### Step 1: Run the script
 
 ```
-Step 2: Run Backup Script on Server A
-```bash
-# Copy the backup script to Server A
-scp 01-backup-full.sh user@server-a:/tmp/
+chmod +x 01-install-jenkins-with-dummy-app.sh
+./01-install-jenkins-with-dummy-app.sh
 
-# SSH into Server A
-ssh user@server-a
+```
+Step 2: Enter port when asked
+text
 
-# Run backup
+Enter port for Jenkins (default: 8080): 8080
+
+Step 3: Enter Jenkins version
+text
+
+Enter Jenkins version (default: lts-jdk11): lts-jdk11
+
+Step 4: Wait for completion (about 2 minutes)
+
+Step 5: Get the admin password from output or file
+```
+bash
+cat ~/jenkins-password.txt
+```
+
+Step 6: Open browser
+text
+http://YOUR_SERVER_IP:8080
+
+Step 7: Enter password and complete setup
+
+Step 8: Find "dummy-test-job" on dashboard
+
+✅ Done! You now have a test Jenkins with a dummy job.
+
+Script 2: Backup Old Jenkins & Restore to Docker (Production)
+
+Part A: On Server A (Your Old Jenkins)
+
+Step 1: Copy script to Server A
+```
+bash
+scp 02-backup-and-restore-old-jenkins.sh user@server-a-ip:/tmp/
+```
+
+Step 2: SSH into Server A
+```
+bash
+ssh user@server-a-ip
+```
+Step 3: Run the backup script
+```
+bash
 cd /tmp
-chmod +x 01-backup-full.sh
-sudo ./01-backup-full.sh   # May need sudo to read /var/lib/jenkins
+chmod +x 02-backup-and-restore-old-jenkins.sh
+sudo ./02-backup-and-restore-old-jenkins.sh
 ```
-Step 3: Copy Backup to Safe Location
-```bash
-# Copy backup from Server A to your local/sandbox
-scp user@server-a:/tmp/jenkins-full-backup-*.tar.gz ./
+Step 4: Wait for backup to complete
+
+The script will create: jenkins-backup-YYYYMMDD_HHMMSS.tar.gz
+
+Step 5: Copy backup to safe location
+bash
+# Copy to your local machine
+scp /tmp/jenkins-backup-*.tar.gz user@your-machine:/backup/
+✅ Backup complete! Your production Jenkins is still running.
+
+
+Part B: Restore into Docker (On Sandbox or Same Server)
+
+Step 1: Copy backup file to target server
 ```
-Step 4: Restore into Docker (on Sandbox)
-```bash
-./02-restore-full.sh jenkins-full-backup-*.tar.gz
+bash
+scp jenkins-backup-*.tar.gz user@target-server:/tmp/
 ```
 
----
+Step 2: SSH into target server
+```
+bash
+ssh user@target-server
+cd /tmp
+```
 
-## Summary of Changes for Client
+Step 3: Run the same script again (it will detect backup)
+```
+bash
+./02-backup-and-restore-old-jenkins.sh
+```
 
-| Old Script | New Script |
-|------------|------------|
-| Assumes Jenkins in Docker | Works with traditional Jenkins |
-| Backs up Docker image | Backs up Jenkins data + records version |
-| Only works on Docker | Works on ANY Jenkins installation |
+Step 4: Enter port for restored Jenkins
 
----
+text
+Enter port for restored Jenkins (default: 8082): 8082
 
-**Do you want me to:**
-1. Create the final package with these updated scripts?
-2. Update the GitHub repository with these changes?
-3. Write the final message to client explaining the old Jenkins support?
+Step 5: Wait for restore to complete (about 1 minute)
+
+Step 6: Get the admin password
+```
+bash
+docker exec jenkins-restored cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+Step 7: Open browser
+
+text
+http://TARGET_SERVER_IP:8082
+
+Step 8: Enter password and verify your jobs are restored
+
+✅ Restore complete! Your old Jenkins is now running in Docker with all configurations.
+
+Quick Commands Summary
+Script 1 (Test Jenkins)
+```
+./01-install-jenkins-with-dummy-app.sh
+# Output: http://SERVER:8080
+# Password: cat ~/jenkins-password.txt
+
+```
+
+Script 2 (Backup Old Jenkins)
+```
+sudo ./02-backup-and-restore-old-jenkins.sh
+# Creates: jenkins-backup-TIMESTAMP.tar.gz
+
+```
+
+Script 2 (Restore to Docker)
+```
+./02-backup-and-restore-old-jenkins.sh
+# Enter port: 8082
+# Access: http://SERVER:8082
+
+```
+
+Common Issues & Fixes
+Problem	Solution
+Permission denied	Use sudo
+Docker not found	sudo apt install docker.io or sudo yum install docker
+Port already in use	Choose different port (e.g., 9090)
+Can't access browser	Open firewall: sudo ufw allow 8082
+
+Files Created
+File	Location	Purpose
+jenkins-backup-*.tar.gz	Current directory	Backup file
+jenkins-password.txt	~/	Admin password (Script 1)
+jenkins-data/	~/	Jenkins data (Script 1)
+
+Need Help?
+
+Check container logs:
+```
+bash
+docker logs jenkins-restored
+```
