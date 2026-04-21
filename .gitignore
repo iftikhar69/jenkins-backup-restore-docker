@@ -1,0 +1,15 @@
+# Ignore backup files (too large)
+*.tar.gz
+*.tar
+
+# Ignore temporary files
+*.tmp
+*.log
+
+# Ignore IDE files
+.vscode/
+.idea/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
