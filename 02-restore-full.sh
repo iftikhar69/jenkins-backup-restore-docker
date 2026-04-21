@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================
-# FULL JENKINS RESTORE (Image + Data)
+# RESTORE OLD JENKINS BACKUP INTO DOCKER
 # Usage: ./02-restore-full.sh <backup-file.tar.gz>
 # ============================================
 
@@ -18,8 +18,7 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-# FIX: Get absolute path to handle spaces in folder names
-BACKUP_FILE=$(readlink -f "$1")
+BACKUP_FILE="$1"
 
 if [ ! -f "$BACKUP_FILE" ]; then
     echo -e "${RED}Error: Backup file not found: $BACKUP_FILE${NC}"
@@ -27,7 +26,7 @@ if [ ! -f "$BACKUP_FILE" ]; then
 fi
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}Full Jenkins Restore (Image + Data)${NC}"
+echo -e "${GREEN}Restoring Old Jenkins Backup into Docker${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 # Step 1: Extract backup
@@ -36,46 +35,59 @@ RESTORE_DIR="/tmp/jenkins-restore-$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$RESTORE_DIR"
 tar -xzf "$BACKUP_FILE" -C "$RESTORE_DIR"
 
-# FIX: Find the actual backup folder inside the extraction
+# Find the actual backup folder
 BACKUP_CONTENT=$(find "$RESTORE_DIR" -maxdepth 1 -type d -name "jenkins-full-backup-*" | head -1)
 echo -e "${GREEN}Backup content found at: $BACKUP_CONTENT${NC}"
 
-# Step 2: Load the Docker image
-echo -e "${YELLOW}[2/6] Loading Docker image...${NC}"
-# FIX: Use quotes and the correct variable path
-docker load -i "$BACKUP_CONTENT/jenkins-image.tar"
-IMAGE_NAME=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
-echo -e "${GREEN}Image loaded: $IMAGE_NAME${NC}"
+# Step 2: Read the Jenkins version from manifest
+echo -e "${YELLOW}[2/6] Reading Jenkins version from backup...${NC}"
+
+if [ -f "$BACKUP_CONTENT/RESTORE-INSTRUCTIONS.txt" ]; then
+    JENKINS_VERSION=$(grep "Original Jenkins version:" "$BACKUP_CONTENT/RESTORE-INSTRUCTIONS.txt" | cut -d':' -f2 | xargs)
+else
+    echo -e "${YELLOW}Could not find version, using latest LTS${NC}"
+    JENKINS_VERSION="lts-jdk11"
+fi
+
+echo -e "${GREEN}Will use Jenkins version: $JENKINS_VERSION${NC}"
 
 # Step 3: Ask for port
 echo -e "${YELLOW}[3/6] Configure Jenkins port...${NC}"
 read -p "Enter port for Jenkins (default: 8080): " JENKINS_PORT
 JENKINS_PORT=${JENKINS_PORT:-8080}
 
-# Step 4: Stop and remove existing Jenkins container
-echo -e "${YELLOW}[4/6] Cleaning up existing Jenkins container...${NC}"
-# FIX: Force remove to avoid the "Conflict" error you had
-docker rm -f jenkins-restored 2>/dev/null || true
-
-# Step 5: Extract data backup
-echo -e "${YELLOW}[5/6] Preparing data backup...${NC}"
+# Step 4: Extract data backup
+echo -e "${YELLOW}[4/6] Preparing data backup...${NC}"
 tar -xzf "$BACKUP_CONTENT/jenkins-data.tar.gz" -C "$BACKUP_CONTENT"
 DATA_DIR="$BACKUP_CONTENT/jenkins-data"
 
-# Step 6: Run new container with restored image and data
+# Step 5: Clean up existing container
+echo -e "${YELLOW}[5/6] Cleaning up existing Jenkins container...${NC}"
+docker rm -f jenkins-restored 2>/dev/null || true
+
+# Step 6: Pull and run Jenkins with restored data
 echo -e "${YELLOW}[6/6] Starting restored Jenkins...${NC}"
-# FIX: Added quotes to the volume path to handle spaces
+
+# Try to pull the exact version, if fails use lts
+if docker pull jenkins/jenkins:$JENKINS_VERSION 2>/dev/null; then
+    JENKINS_IMAGE="jenkins/jenkins:$JENKINS_VERSION"
+else
+    echo -e "${YELLOW}Warning: Exact version $JENKINS_VERSION not found. Using lts-jdk11${NC}"
+    JENKINS_IMAGE="jenkins/jenkins:lts-jdk11"
+fi
+
 docker run -d \
   --name jenkins-restored \
   --restart unless-stopped \
-  -p "${JENKINS_PORT}:8080" \
+  -p ${JENKINS_PORT}:8080 \
   -p 50000:50000 \
-  -v "${DATA_DIR}:/var/jenkins_home" \
-  "$IMAGE_NAME"
+  -v ${DATA_DIR}:/var/jenkins_home \
+  ${JENKINS_IMAGE}
 
 # Step 7: Display access info
-echo -e "${YELLOW}Waiting for Jenkins to start (20s)...${NC}"
-sleep 20
+echo -e "${YELLOW}Waiting for Jenkins to start (30 seconds)...${NC}"
+sleep 30
+
 SERVER_IP=$(hostname -I | awk '{print $1}')
 
 echo -e "${GREEN}========================================${NC}"
@@ -83,4 +95,8 @@ echo -e "${GREEN}RESTORE COMPLETE!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Jenkins is running at: http://${SERVER_IP}:${JENKINS_PORT}${NC}"
 echo -e ""
-echo -e "${YELLOW}To check logs: docker logs -f jenkins-restored${NC}"
+echo -e "${YELLOW}To get the admin password:${NC}"
+echo -e "  docker exec jenkins-restored cat /var/jenkins_home/secrets/initialAdminPassword"
+echo -e ""
+echo -e "${YELLOW}To check logs:${NC}"
+echo -e "  docker logs -f jenkins-restored"
