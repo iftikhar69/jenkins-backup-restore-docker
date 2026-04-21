@@ -52,11 +52,45 @@ http://YOUR_SERVER_IP:8080
 
 Step 7: Enter password and complete setup
 
-Step 8: Find "dummy-test-job" on dashboard
+Step 8: Create dummy test job manually
+- Go to "New Item" in Jenkins dashboard
+- Enter name: "dummy-test-job"
+- Select "Freestyle project"
+- In build steps, add "Execute shell" with:
+```
+echo "========================================="
+echo "DUMMY APP BUILD SUCCESSFUL!"
+echo "========================================="
+echo "Current date: $(date)"
+echo "Hostname: $(hostname)"
+echo "========================================="
+echo "This job was created manually"
+echo "========================================="
+```
+- Save and build the job
 
 ✅ Done! You now have a test Jenkins with a dummy job.
 
-Script 2: Backup Old Jenkins & Restore to Docker (Production)
+---
+
+## Testing the Scripts
+
+### Test Script 1 (Fresh Install)
+- Run `./01-install-jenkins-with-dummy-app.sh`
+- Access http://YOUR_SERVER_IP:8080
+- Complete setup and create dummy job manually
+- Verify job runs successfully
+
+### Test Script 2 (Backup & Restore)
+For testing purposes, you can use the Jenkins from Script 1:
+
+1. Run Script 1 to create test Jenkins
+2. Copy the data: `sudo cp -r ~/jenkins-data/* /var/lib/jenkins/` (create directory if needed)
+3. Run Script 2 to backup: `sudo ./02-backup-and-restore-old-jenkins.sh`
+4. Run Script 2 again to restore: `./02-backup-and-restore-old-jenkins.sh` (enter port 8082)
+5. Access restored Jenkins at http://YOUR_SERVER_IP:8082
+
+---
 
 Part A: On Server A (Your Old Jenkins)
 

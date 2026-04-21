@@ -120,17 +120,16 @@ echo "========================================="</command>
 EOF
 
 # Create the job using Jenkins CLI (download CLI if needed)
-echo -e "${YELLOW}Creating dummy job via Jenkins API...${NC}"
+echo -e "${YELLOW}Creating dummy job via Jenkins CLI...${NC}"
 
 # Download Jenkins CLI
 wget -q http://localhost:${JENKINS_PORT}/jnlpJars/jenkins-cli.jar -O ~/jenkins-cli.jar 2>/dev/null || true
 
-# Create job using REST API (more reliable)
+# Wait for Jenkins to be fully ready
 sleep 10
-curl -X POST "http://localhost:${JENKINS_PORT}/createItem?name=dummy-test-job" \
-  --user "admin:${PASSWORD}" \
-  -H "Content-Type: application/xml" \
-  --data-binary @~/dummy-job-config.xml 2>/dev/null || echo -e "${YELLOW}Note: Job creation via API may require initial setup. Please create manually.${NC}"
+
+# Create job using Jenkins CLI (more reliable than API)
+java -jar ~/jenkins-cli.jar -s http://localhost:${JENKINS_PORT} -auth admin:${PASSWORD} create-job dummy-test-job < ~/dummy-job-config.xml 2>/dev/null && echo -e "${GREEN}Dummy job created successfully!${NC}" || echo -e "${YELLOW}Note: Job creation requires Jenkins setup completion. Please create 'dummy-test-job' manually in the web interface after setup.${NC}"
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}INSTALLATION COMPLETE!${NC}"
